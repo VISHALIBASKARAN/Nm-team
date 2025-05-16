@@ -1,0 +1,66 @@
+import os
+
+# Docker Compose file content
+docker_compose = '''
+version: '3.7'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.18
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.18
+    container_name: logstash
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.18
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+
+volumes:
+  esdata:
+'''
+
+# Logstash pipeline configuration
+logstash_conf = '''
+input {
+  tcp {
+    port => 5000
+    codec => json_lines
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["http://elasticsearch:9200"]
+    index => "logs-%{+YYYY.MM.dd}"
+  }
+}
+'''
+
+# Create the necessary files
+with open('docker-compose.yml', 'w') as f:
+    f.write(docker_compose)
+
+with open('logstash.conf', 'w') as f:
+    f.write(logstash_conf)
+
+# Run docker-compose up
+print("Starting ELK stack with Docker Compose...")
+os.system('docker-compose up -d')
+print("ELK Stack is starting. Visit http://localhost:5601 in your browser.")
